@@ -26,26 +26,6 @@ void insertRQ(std::vector<Process> &jq,
               std::vector<Process> &rq,
               int curr_time)
 {
-    while (jq.front().arrival_time < curr_time)
-    {
-        rq.push_back(jq[0]);
-        jq.erase(jq.begin());
-        if (jq.size() == 0)
-        {
-            break;
-        }
-    }
-    rq.push_back(rq[0]);
-    rq.erase(rq.begin());
-    while (jq.front().arrival_time == curr_time)
-    {
-        rq.push_back(jq[0]);
-        jq.erase(jq.begin());
-        if (jq.size() == 0)
-        {
-            break;
-        }
-    }
 }
 
 void startTime(std::vector<int> &seq, std::vector<Process> &processes, int ct, int pid)
@@ -90,7 +70,7 @@ void simulate_rr(
             jq.push_back(p);
         }
     }
-    while (jq.size() > 0 || rq.size() > 0)
+    while (jq.size() > 0 || rq.size() > 0) //&& seq.size() < max_seq_len)
     {
         if (rq.size() > 0 && jq.size() > 0)
         {
@@ -98,7 +78,7 @@ void simulate_rr(
             if (remainingTime[rq[0].id] > quantum)
             {
                 curr_time += quantum;
-                remainingTime[0] -= quantum;
+                remainingTime[rq[0].id] -= quantum;
                 while (jq.front().arrival_time < curr_time)
                 {
                     rq.push_back(jq[0]);
@@ -171,6 +151,10 @@ void simulate_rr(
                 rq.push_back(jq[0]);
                 sequence(seq, jq);
                 jq.erase(jq.begin());
+                if (jq.size() == 0)
+                {
+                    break;
+                }
             }
         }
     }
