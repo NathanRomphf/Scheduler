@@ -26,8 +26,18 @@ void insertRQ(std::vector<Process> &jq,
               std::vector<Process> &rq,
               int curr_time)
 {
-    std::cout << "inserting into rq" << std::endl;
     while (jq.front().arrival_time < curr_time)
+    {
+        rq.push_back(jq[0]);
+        jq.erase(jq.begin());
+        if (jq.size() == 0)
+        {
+            break;
+        }
+    }
+    rq.push_back(rq[0]);
+    rq.erase(rq.begin());
+    while (jq.front().arrival_time == curr_time)
     {
         rq.push_back(jq[0]);
         jq.erase(jq.begin());
@@ -38,71 +48,130 @@ void insertRQ(std::vector<Process> &jq,
     }
 }
 
+void startTime(std::vector<int> &seq, std::vector<Process> &processes, int ct, int pid)
+{
+    if (processes[pid].start_time == -1)
+    {
+        processes[pid].start_time = ct;
+    }
+}
+
+void sequence(std::vector<int> &seq, std::vector<Process> &p)
+{
+    if (seq.size() == 0 || seq[seq.size() - 1] != p[0].id)
+    {
+        seq.push_back(p[0].id);
+    }
+    return;
+}
+
 void simulate_rr(
     int64_t quantum,
     int64_t max_seq_len,
     std::vector<Process> &processes,
     std::vector<int> &seq)
 {
+    std::cout << "Quantum: " << quantum << std::endl;
     seq.clear();
     std::vector<Process> jq = std::vector<Process>();
     std::vector<Process> rq = std::vector<Process>();
     std::vector<int> remainingTime = std::vector<int>();
     int curr_time = 0;
-    std::cout << "Afer inintializing variables\n";
     for (auto &p : processes)
     {
-        // remainingTime.insert(p.id, p.burst);
+        remainingTime.push_back(p.burst);
         if (p.arrival_time <= 0)
         {
             rq.push_back(p);
+            seq.push_back(p.id);
         }
         else
         {
             jq.push_back(p);
         }
     }
-    std::cout << "After adding processes to queues\n";
     while (jq.size() > 0 || rq.size() > 0)
     {
-        std::cout << "In the while loop\n";
         if (rq.size() > 0 && jq.size() > 0)
         {
-            std::cout << "Processes in both queues\n";
-            if (remainingTime[rq.front().id] > quantum)
+            startTime(seq, processes, curr_time, rq[0].id);
+            if (remainingTime[rq[0].id] > quantum)
             {
                 curr_time += quantum;
-                insertRQ(jq, rq, curr_time);
+                remainingTime[0] -= quantum;
+                while (jq.front().arrival_time < curr_time)
+                {
+                    rq.push_back(jq[0]);
+                    sequence(seq, jq);
+                    jq.erase(jq.begin());
+                    if (jq.size() == 0)
+                    {
+                        break;
+                    }
+                }
                 rq.push_back(rq[0]);
+                sequence(seq, rq);
                 rq.erase(rq.begin());
+                while (jq.front().arrival_time == curr_time)
+                {
+                    rq.push_back(jq[0]);
+                    sequence(seq, jq);
+                    jq.erase(jq.begin());
+                    if (jq.size() == 0)
+                    {
+                        break;
+                    }
+                }
             }
             else
             {
-                curr_time += remainingTime[rq.front().id];
-                insertRQ(jq, rq, curr_time);
+                curr_time += remainingTime[rq[0].id];
+                remainingTime[rq[0].id] = 0;
+                processes[rq[0].id].finish_time = curr_time;
+                // insertRQ(jq, rq, curr_time);
                 rq.erase(rq.begin());
+                while (jq.front().arrival_time <= curr_time)
+                {
+                    rq.push_back(jq[0]);
+                    sequence(seq, jq);
+                    jq.erase(jq.begin());
+                    if (jq.size() == 0)
+                    {
+                        break;
+                    }
+                }
             }
         }
         else if (jq.size() == 0)
         {
-            std::cout << "Processes in rq only\n";
+            startTime(seq, processes, curr_time, rq[0].id);
             if (remainingTime[rq.front().id] > quantum)
             {
                 curr_time += quantum;
+                remainingTime[rq[0].id] -= quantum;
                 rq.push_back(rq[0]);
+                sequence(seq, rq);
                 rq.erase(rq.begin());
             }
             else
             {
                 curr_time += remainingTime[rq[0].id];
+                remainingTime[rq[0].id] = 0;
+                processes[rq[0].id].finish_time = curr_time;
                 rq.erase(rq.begin());
             }
         }
         else
         {
-            std::cout << "Processes in jq only\n";
             curr_time = jq.front().arrival_time;
-            insertRQ(jq, rq, curr_time);
+            seq.push_back(-1);
+            // insertRQ(jq, rq, curr_time);
+            while (jq[0].arrival_time <= curr_time)
+            {
+                rq.push_back(jq[0]);
+                sequence(seq, jq);
+                jq.erase(jq.begin());
+            }
         }
     }
 }
