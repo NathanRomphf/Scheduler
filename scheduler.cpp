@@ -22,13 +22,7 @@
 //         - do not adjust other fields
 //
 
-void insertRQ(std::vector<Process> &jq,
-              std::vector<Process> &rq,
-              int curr_time)
-{
-}
-
-void startTime(std::vector<int> &seq, std::vector<Process> &processes, int ct, int pid)
+void startTime(std::vector<Process> &processes, int64_t ct, int64_t pid)
 {
     if (processes[pid].start_time == -1)
     {
@@ -36,13 +30,19 @@ void startTime(std::vector<int> &seq, std::vector<Process> &processes, int ct, i
     }
 }
 
-void sequence(std::vector<int> &seq, std::vector<Process> &p)
+void sequence(std::vector<int> &seq, std::vector<Process> &p, int64_t msl)
 {
-    if (seq.size() == 0 || seq[seq.size() - 1] != p[0].id)
+    if ((seq.size() == 0 || seq[seq.size() - 1] != p[0].id) && (seq.size() < msl))
     {
         seq.push_back(p[0].id);
     }
     return;
+}
+
+void moveQueues(std::vector<Process> &p1, std::vector<Process> &p2, std::vector<int> &seq){
+    p1.push_back(p2[0]);
+    //sequence(seq, p2);
+    p2.erase(p2.begin());
 }
 
 void simulate_rr(
@@ -55,48 +55,43 @@ void simulate_rr(
     seq.clear();
     std::vector<Process> jq = std::vector<Process>();
     std::vector<Process> rq = std::vector<Process>();
-    std::vector<int> remainingTime = std::vector<int>();
-    int curr_time = 0;
+    std::vector<int64_t> remainingTime = std::vector<int64_t>();
+    int64_t curr_time = 0;
     for (auto &p : processes)
     {
         remainingTime.push_back(p.burst);
         if (p.arrival_time <= 0)
         {
             rq.push_back(p);
-            seq.push_back(p.id);
+            //seq.push_back(p.id);
         }
         else
         {
             jq.push_back(p);
         }
     }
-    while (jq.size() > 0 || rq.size() > 0) //&& seq.size() < max_seq_len)
+    while (jq.size() > 0 || rq.size() > 0)
     {
         if (rq.size() > 0 && jq.size() > 0)
         {
-            startTime(seq, processes, curr_time, rq[0].id);
+            sequence(seq, rq, max_seq_len);
+            startTime(processes, curr_time, rq[0].id);
             if (remainingTime[rq[0].id] > quantum)
             {
                 curr_time += quantum;
                 remainingTime[rq[0].id] -= quantum;
                 while (jq.front().arrival_time < curr_time)
                 {
-                    rq.push_back(jq[0]);
-                    sequence(seq, jq);
-                    jq.erase(jq.begin());
+                    moveQueues(rq, jq, seq);
                     if (jq.size() == 0)
                     {
                         break;
                     }
                 }
-                rq.push_back(rq[0]);
-                sequence(seq, rq);
-                rq.erase(rq.begin());
+                moveQueues(rq, rq, seq);
                 while (jq.front().arrival_time == curr_time)
                 {
-                    rq.push_back(jq[0]);
-                    sequence(seq, jq);
-                    jq.erase(jq.begin());
+                    moveQueues(rq, jq, seq);
                     if (jq.size() == 0)
                     {
                         break;
@@ -112,9 +107,7 @@ void simulate_rr(
                 rq.erase(rq.begin());
                 while (jq.front().arrival_time <= curr_time)
                 {
-                    rq.push_back(jq[0]);
-                    sequence(seq, jq);
-                    jq.erase(jq.begin());
+                    moveQueues(rq, jq, seq);
                     if (jq.size() == 0)
                     {
                         break;
@@ -124,14 +117,13 @@ void simulate_rr(
         }
         else if (jq.size() == 0)
         {
-            startTime(seq, processes, curr_time, rq[0].id);
+            sequence(seq, rq, max_seq_len);
+            startTime(processes, curr_time, rq[0].id);
             if (remainingTime[rq.front().id] > quantum)
             {
                 curr_time += quantum;
                 remainingTime[rq[0].id] -= quantum;
-                rq.push_back(rq[0]);
-                sequence(seq, rq);
-                rq.erase(rq.begin());
+                moveQueues(rq, rq, seq);
             }
             else
             {
@@ -148,9 +140,7 @@ void simulate_rr(
             // insertRQ(jq, rq, curr_time);
             while (jq[0].arrival_time <= curr_time)
             {
-                rq.push_back(jq[0]);
-                sequence(seq, jq);
-                jq.erase(jq.begin());
+                moveQueues(rq, jq, seq);
                 if (jq.size() == 0)
                 {
                     break;
