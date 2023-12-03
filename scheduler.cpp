@@ -39,9 +39,10 @@ void sequence(std::vector<int> &seq, std::vector<Process> &p, int64_t msl)
     return;
 }
 
-void moveQueues(std::vector<Process> &p1, std::vector<Process> &p2, std::vector<int> &seq){
+void moveQueues(std::vector<Process> &p1, std::vector<Process> &p2, std::vector<int> &seq)
+{
     p1.push_back(p2[0]);
-    //sequence(seq, p2);
+    // sequence(seq, p2);
     p2.erase(p2.begin());
 }
 
@@ -51,19 +52,20 @@ void simulate_rr(
     std::vector<Process> &processes,
     std::vector<int> &seq)
 {
-    std::cout << "Quantum: " << quantum << std::endl;
     seq.clear();
     std::vector<Process> jq = std::vector<Process>();
     std::vector<Process> rq = std::vector<Process>();
     std::vector<int64_t> remainingTime = std::vector<int64_t>();
     int64_t curr_time = 0;
+    int64_t prevSeqSize = 0;
+    bool manyq = false;
+    int64_t largeQ = quantum * 1000;
     for (auto &p : processes)
     {
         remainingTime.push_back(p.burst);
         if (p.arrival_time <= 0)
         {
             rq.push_back(p);
-            //seq.push_back(p.id);
         }
         else
         {
@@ -72,6 +74,28 @@ void simulate_rr(
     }
     while (jq.size() > 0 || rq.size() > 0)
     {
+        if (jq.size() == 0 || ((jq[0].arrival_time > (curr_time + largeQ * rq.size())) && rq.size() != 0))
+        {
+            manyq = true;
+            for (int i = 0; i < rq.size(); i++)
+            {
+                startTime(processes, curr_time + i * quantum, rq[i].id);
+                if (remainingTime[rq[i].id] <= largeQ)
+                {
+                    manyq = false;
+                }
+            }
+            if (manyq)
+            {
+                for (Process p : rq)
+                {
+                    sequence(seq, rq, max_seq_len);
+                    remainingTime[p.id] -= largeQ;
+                    curr_time += largeQ;
+                }
+            }
+            manyq = false;
+        }
         if (rq.size() > 0 && jq.size() > 0)
         {
             sequence(seq, rq, max_seq_len);
@@ -121,6 +145,7 @@ void simulate_rr(
             startTime(processes, curr_time, rq[0].id);
             if (remainingTime[rq.front().id] > quantum)
             {
+
                 curr_time += quantum;
                 remainingTime[rq[0].id] -= quantum;
                 moveQueues(rq, rq, seq);
